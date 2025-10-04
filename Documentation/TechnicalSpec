@@ -1,8 +1,8 @@
-1. Tujuan
+# 1. Tujuan
 
 Menguraikan spesifikasi teknis untuk eksperimen simulasi DDoS (kasus Slowloris) pada lingkungan virtual terisolasi. Dokumen ini mencakup arsitektur, konfigurasi VM, langkah-langkah eksekusi, metrik yang dikumpulkan, parameter mitigasi Nginx, dan prosedur rollback/keamanan agar eksperimen dapat direplikasi dengan aman dan konsisten.
 
-2. Ruang Lingkup
+# 2. Ruang Lingkup
 
 Simulasi hanya pada lingkungan laboratorium (Host-Only / Internal Network).
 
@@ -10,7 +10,7 @@ Skenario: 1 VM Attacker (Kali Linux) menjalankan Slowloris vs 1 VM Victim (Ubunt
 
 Tidak termasuk pembuatan alat mitigasi kompleks (WAF/Load Balancer), kecuali konfigurasi Nginx dasar untuk mitigasi.
 
-3. Komponen & Versi
+# 3. Komponen & Versi
 
 Hypervisor: Oracle VirtualBox (atau VMware Workstation) — versi terbaru yang stabil di host.
 
