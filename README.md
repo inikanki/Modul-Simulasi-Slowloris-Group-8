@@ -19,10 +19,9 @@ Modul ini menjelaskan konsep DoS/DDoS, tipe serangan (volumetric, protocol, appl
 * **Attacker VM:** Kali Linux (atau distro pentest)
 * Slowloris script: `https://github.com/gkbrk/slowloris` (clone pada Attacker)
 * Akses `sudo`/root pada kedua VM
-* Jaringan VM: host-only / internal / bridged sesuai isolasi lab
+* Jaringan VM: NAT / bridged sesuai isolasi lab
 * Ambil snapshot sebelum pengujian
 
----
 
 ## Konfigurasi VM (rekomendasi)
 
