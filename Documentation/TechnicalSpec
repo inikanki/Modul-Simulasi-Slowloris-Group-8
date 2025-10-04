@@ -1,0 +1,313 @@
+1. Tujuan
+
+Menguraikan spesifikasi teknis untuk eksperimen simulasi DDoS (kasus Slowloris) pada lingkungan virtual terisolasi. Dokumen ini mencakup arsitektur, konfigurasi VM, langkah-langkah eksekusi, metrik yang dikumpulkan, parameter mitigasi Nginx, dan prosedur rollback/keamanan agar eksperimen dapat direplikasi dengan aman dan konsisten.
+
+2. Ruang Lingkup
+
+Simulasi hanya pada lingkungan laboratorium (Host-Only / Internal Network).
+
+Skenario: 1 VM Attacker (Kali Linux) menjalankan Slowloris vs 1 VM Victim (Ubuntu 22.04 + Nginx).
+
+Tidak termasuk pembuatan alat mitigasi kompleks (WAF/Load Balancer), kecuali konfigurasi Nginx dasar untuk mitigasi.
+
+3. Komponen & Versi
+
+Hypervisor: Oracle VirtualBox (atau VMware Workstation) — versi terbaru yang stabil di host.
+
+VM Victim:
+
+OS: Ubuntu Server 22.04.5 LTS
+
+Nginx: nginx-full (paket apt default — catat versi tepat setelah install)
+
+Tools: curl, ss, tcpdump, htop, git
+
+VM Attacker:
+
+OS: Kali Linux (misal Kali 2025.x sesuai image yang dipakai)
+
+Slowloris: https://github.com/gkbrk/slowloris (script Python)
+
+Python: Python 3.x
+
+Network: Host-Only / Internal Network (isolated)
+
+Opsional (analisis): Wireshark di host, ELK stack (di luar scope tapi boleh dipakai)
+
+Catat versi sebenarnya pada saat setup (mis. nginx version: nginx/1.18.0 (Ubuntu)).
+
+4. Topologi Jaringan & IPing
+
+Jaringan: Host-Only (VirtualBox) atau Internal Network
+
+Contoh alamat IP (sesuaikan):
+
+Victim (Ubuntu): 192.168.56.10
+
+Attacker (Kali): 192.168.56.11
+
+Host (opsional, untuk observasi): 192.168.56.1
+
+Pastikan tidak ada gateway ke internet publik pada adapter yang dipakai selama eksperimen.
+
+5. Spesifikasi VM (Rekomendasi)
+
+Victim (Ubuntu + Nginx)
+
+RAM: 2 GB
+
+vCPU: 2–3
+
+Disk: 25 GB
+
+Network Adapter: Host-Only / Bridged (isolated)
+
+Swap: sesuai default
+
+Attacker (Kali + Slowloris)
+
+RAM: 2 GB
+
+vCPU: 2–4
+
+Disk: 25 GB
+
+Network Adapter: Host-Only / Bridged (isolated)
+
+6. Instalasi & Setup (Commands)
+6.1 Victim — Ubuntu (contoh)
+# update
+sudo apt update && sudo apt upgrade -y
+
+# install tools + nginx
+sudo apt install -y nginx-full curl git htop tcpdump
+
+# enable nginx
+sudo systemctl enable --now nginx
+
+# verify
+nginx -v
+systemctl status nginx
+curl -I http://127.0.0.1
+
+6.2 Attacker — Kali (contoh)
+# update (opsional)
+sudo apt update && sudo apt upgrade -y
+
+# install git, python3
+sudo apt install -y git python3
+
+# clone slowloris
+git clone https://github.com/gkbrk/slowloris
+cd slowloris
+
+# cek python
+python3 --version
+
+7. Konfigurasi Nginx — Mitigasi Dasar (File: /etc/nginx/nginx.conf atau conf.d/limits.conf)
+
+Tambahkan ke blok http { ... } atau file conf.d/limits.conf:
+
+# Mitigasi dasar slowloris
+client_header_timeout 10s;
+client_body_timeout 10s;
+keepalive_timeout 5s;
+
+# Batasi koneksi per IP
+limit_conn_zone $binary_remote_addr zone=addr:10m;
+limit_conn addr 5;
+
+# Batasi request rate (opsional)
+limit_req_zone $binary_remote_addr zone=req_limit_per_ip:10m rate=20r/m;
+
+
+Setelah edit:
+
+sudo nginx -t
+sudo systemctl reload nginx
+
+
+Catatan: Nilai limit_conn & rate harus diuji dan disesuaikan dengan trafik normal aplikasi.
+
+8. Skrip/Perintah Serangan (Slowloris)
+
+Jalankan pada Attacker:
+
+cd ~/slowloris
+python3 slowloris.py 192.168.56.10 10000
+
+
+Argumen kedua (10000) = jumlah sockets/connections yang dibuka (sesuaikan dengan kapasitas lab).
+
+Untuk skenario multi-attacker, jalankan instance tambahan pada VM Attacker kedua (jika tersedia).
+
+9. Test Plan & Cases
+9.1 Tes A — Baseline (Tanpa serangan)
+
+Tujuan: Verifikasi Nginx responsif.
+
+Langkah:
+
+Akses http://192.168.56.10 dari host/browser.
+
+Kumpulkan metrik: htop, ss -tna | grep :80 | wc -l, curl -s -o /dev/null -w "%{time_total}\n" http://192.168.56.10
+
+Expected: Response time kecil (<100–500 ms pada lab), koneksi rendah (<50), CPU/mem normal.
+
+9.2 Tes B — Serangan (Tanpa mitigasi)
+
+Tujuan: Amati dampak Slowloris.
+
+Langkah:
+
+Jalankan Slowloris dengan 10000 sockets.
+
+Monitor ss, htop, nginx logs, curl dari client.
+
+Expected: Kenaikan drastis koneksi di port 80, layanan tidak responsif, response time sangat tinggi / timeouts.
+
+9.3 Tes C — Mitigasi diterapkan
+
+Tujuan: Evaluasi efektivitas konfigurasi Nginx.
+
+Langkah:
+
+Terapkan konfigurasi mitigasi (lihat bagian 7).
+
+Reload Nginx.
+
+Jalankan Slowloris sama seperti Tes B.
+
+Monitor metrik.
+
+Expected: Layanan tetap responsif atau kemunduran dampak signifikan; jumlah koneksi per IP dibatasi; logs menunjukkan koneksi terputus/ditolak.
+
+9.4 Pengukuran & Pembandingan
+
+Simpan metrik sebelum/during/after serangan:
+
+ss -tna | grep :80 | wc -l (jumlah koneksi)
+
+curl -s -o /dev/null -w "%{time_total}\n" http://<VICTIM_IP> (response time)
+
+htop CPU%/Mem%
+
+/var/log/nginx/error.log dan /var/log/nginx/access.log
+
+tcpdump pcap (opsional)
+
+10. Metrik & Ambang (Thresholds)
+
+Sesuai lab; contoh ambang awal untuk laporan:
+
+Response time normal: < 0.5 s
+
+Response time serangan: > 5 s atau timeouts
+
+Jumlah koneksi port 80 normal: < 50
+
+Jumlah koneksi saat serangan: sangat meningkat (>500 — tergantung parameter)
+
+CPU usage: normal < 50% ; saat serangan dapat naik mendekati 100%
+
+(Adjust thresholds to match your VM capacity — catat nilai baseline!)
+
+11. Logging & Artefak yang Disimpan
+
+/var/log/nginx/access.log — akses HTTP
+
+/var/log/nginx/error.log — error
+
+tcpdump -w ddos_capture.pcap — capture paket (opsional, besar)
+
+ss / netstat outputs — simpan sebagai teks
+
+htop / top screenshots atau output
+
+Hasil curl response times
+
+Snapshot VM sebelum & sesudah eksperimen
+
+Simpan artefak di folder artifacts/ dalam repo (atau di storage terpisah jika besar).
+
+12. Keamanan, Etika, dan Kepatuhan
+
+Isolasi wajib: pakai Host-Only/Internal Network, tidak boleh mengakses Internet publik selama eksperimen.
+
+Izin: semua pengujian hanya pada VM milik tim atau institusi dengan izin eksplisit.
+
+Snapshot sebelum eksperimen.
+
+Hentikan eksperimen segera jika traffic meluas di luar jaringan lab.
+
+Dokumentasikan semua langkah untuk audit.
+
+13. Rollback & Recovery
+
+Jika Victim menjadi tidak responsif atau kernel panics:
+
+Hentikan proses Slowloris pada Attacker (Ctrl+C atau hentikan VM).
+
+Gunakan snapshot untuk rollback VM Victim ke keadaan sebelum eksperimen.
+
+Jika hanya Nginx problem: sudo systemctl restart nginx (setelah men-check nginx -t).
+
+Kembalikan konfigurasi Nginx dari backup sebelum perubahan (simpan di /etc/nginx/nginx.conf.bak).
+
+14. Troubleshooting Umum
+
+nginx -t gagal → cek sintaks, lihat error log.
+
+Slowloris tidak menimbulkan efek → mungkin jumlah sockets terlalu kecil atau kernel TCP settings membatasi; periksa ulimit -n dan kernel TCP parameters.
+
+tcpdump file besar → tambahkan filter, atau batasi durasi (-c).
+
+15. Extensions / Next Steps (Opsional)
+
+Tambahkan sensor pengukuran terpusat (Prometheus + Grafana) untuk visualisasi.
+
+Uji multi-attacker skenario (lebih dari 1 VM Attacker).
+
+Uji mitigasi di level jaringan (iptables rate limiting) atau upstream (load balancer).
+
+Implementasikan WAF atau solusi berbasis cloud untuk perbandingan efektivitas.
+
+16. Deliverables untuk Repo
+
+TECHNICAL_SPEC.md (file ini)
+
+USER_MANUAL.md (sudah dibuat)
+
+artifacts/ (direktori untuk menyimpan logs/pcap/screenshot)
+
+nginx/ (opsional: contoh file konfigurasi, limits.conf)
+
+scripts/ (opsional: helper scripts untuk collect metrics)
+
+LICENSE (mis. MIT)
+
+CONTRIBUTORS.md
+
+17. Peran & Tanggung Jawab
+
+Lead / Koordinator Lab: setup infra, snapshot, memonitor etika.
+
+Operator Victim: konfigurasi Nginx, pengumpulan logs.
+
+Operator Attacker: menjalankan Slowloris (sesuai instruksi), menghentikan jika diperlukan.
+
+Analyst: mengumpulkan metrik, membuat laporan, visualisasi.
+
+(Isi nama anggota sesuai tim.)
+
+18. Referensi
+
+Repo Slowloris: https://github.com/gkbrk/slowloris
+
+Nginx docs: https://nginx.org/en/docs/
+
+tcpdump man pages, ss/ssstat docs
+
+19. Catatan Akhir
+
+Simpan catatan versi (date & versions) setiap kali melakukan eksperimen: OS image version, Nginx version, Slowloris commit hash, parameter serangan, hasil metrik. Dokumentasi versi meningkatkan reproducibility dan audit trail.
