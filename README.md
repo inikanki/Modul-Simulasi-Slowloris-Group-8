@@ -1,4 +1,3 @@
-# Modul-Simulasi-Slowloris-Group-8
 # MODUL SIMULASI SLOWLORIS DDoS & DoS
 
 
