@@ -1,1 +1,12 @@
+Untuk menginstal Nginx :
+sudo apt install nginx-full 
+
+Untuk mengecek service Nginx di Linux :
+systemctl status nginx
+
+Untuk mengetahui Ip Adress Nginx :
+ifconfig
+
+Untuk masuk kedalam mode nano :
+sudo nano nginx.d 
 
