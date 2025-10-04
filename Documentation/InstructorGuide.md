@@ -28,7 +28,6 @@ Setelah mengikuti sesi ini, peserta diharapkan mampu:
 * Prasyarat peserta:
 
   * Pengalaman dasar Linux (terminal, editing file).
-  * Pemahaman TCP/IP & HTTP dasar.
   * Izin akses ke VirtualBox/VM host.
 * Prasyarat instruktur:
 
@@ -120,18 +119,8 @@ ls -la
 
 * Perlihatkan isi skrip Slowloris dan opsi penggunaannya.
 
-### D. Pengukuran Baseline Response Time (10 menit)
 
-Contoh: gunakan `curl` untuk mengukur response time:
-
-```bash
-# optional: buat file curl-format.txt atau gunakan inline
-curl -o /dev/null -s -w "time_total: %{time_total}s\n" "http://<IP_VICTIM>/"
-```
-
-Instruksikan peserta menyimpan hasil baseline ke laporan.
-
-### E. Menjalankan Simulasi (Serangan Bertahap) (30–40 menit)
+### D. Menjalankan Simulasi (Serangan Bertahap) (30–40 menit)
 
 **Penting**: ingatkan etika dan batasi target ke VM lab saja.
 
@@ -147,14 +136,11 @@ python3 slowloris.py <IP_VICTIM> 10000
 
 * Instruksikan peserta memonitor Victim selama serangan:
 
-  * `ss -antp | grep nginx` — periksa ESTABLISHED sockets.
-  * `top` / `htop` — CPU & memory.
-  * `tail -f /var/log/nginx/error.log` — error terkait koneksi.
   * Akses `http://<IP_VICTIM>` dari browser untuk menguji availability.
 
 **Expected instructor actions**: demonstrasikan peningkatan dampak saat sockets bertambah; diskusikan trade-offs (kenapa server kehabisan slot).
 
-### F. Mitigasi (45 menit)
+### E. Mitigasi (45 menit)
 
 1. Tunjukkan file contoh `nginx-mitigation-example.conf`.
 2. Pandu peserta untuk mengedit konfigurasi Nginx:
@@ -181,7 +167,7 @@ sudo systemctl reload nginx
 
 4. Jalankan ulang Slowloris (parameter sama) dan minta peserta mengamati apakah halaman kembali responsif.
 
-### G. Analisis & Laporan (30 menit)
+### F. Analisis & Laporan (30 menit)
 
 Instruksikan peserta menulis laporan singkat berisi:
 
@@ -217,36 +203,6 @@ Berikan kuis singkat 5 soal (pilihan ganda / singkat) — dapat dipakai sebagai 
 Berikan kunci jawaban saat menilai.
 
 
-## Rubrik Penilaian Laporan (total 100 poin)
-
-* **Kelengkapan eksperimen & dokumentasi** — 30 pts
-  (snapshot, perintah yang dipakai, parameter, log)
-* **Pengukuran & analisis** — 30 pts
-  (tabel metrik baseline/attack/mitigation, interpretasi data)
-* **Mitigasi & penjelasan konfigurasi** — 20 pts
-  (mengaplikasikan perubahan Nginx, uji ulang, alasan pemilihan)
-* **Etika & keamanan** — 10 pts
-  (snapshot, isolasi, dokumentasi izin)
-* **Kerapihan & presentasi laporan** — 10 pts
-
-
-## Troubleshooting & Tips Instruktur
-
-* **Nginx gagal reload**: jalankan `sudo nginx -t` untuk menemukan error. Periksa kurung kurawal yang hilang atau direktif di tempat yang salah.
-* **Peserta tidak bisa ping VM**: cek pengaturan network adapter (host-only / bridged); matikan firewall sementara (`sudo ufw disable`) hanya untuk lab.
-* **Slowloris script error (Python)**: pastikan `python3` terinstall; cek error trace untuk dependency; jalankan `python3 slowloris.py --help` bila tersedia.
-* **Tidak terlihat efek serangan**: parameter sockets terlalu kecil atau worker_connections Nginx terlalu besar; tingkatkan bertahap tapi tetap aman.
-* **Shared NAT IP**: jika semua peserta berbagi IP/public, pastikan lab terisolasi sehingga limit_conn tidak memblokir seluruh host.
-
-
-## Variasi & Ekstensi Skenario (opsional)
-
-1. **Scale-up**: gunakan beberapa VM attacker (clone Attacker) untuk mensimulasikan DDoS terdistribusi.
-2. **Protocol attack demo**: singkat demo SYN flood (gunakan tools terkontrol) untuk perbandingan kelas serangan.
-3. **Mitigasi lanjut**: konfigurasi reverse proxy (HAProxy), WAF sederhana, atau rate-limiting berbasis aplikasi.
-4. **Monitoring lebih lanjut**: gunakan Prometheus + Grafana untuk metrik terstruktur.
-
-
 ## Checklist Keamanan & Etika (harus ditegaskan tiap sesi)
 
 * [ ] Semua pengujian dijalankan hanya pada VM yang dimiliki/instruksikan.
@@ -254,66 +210,6 @@ Berikan kunci jawaban saat menilai.
 * [ ] Jaringan lab diisolasi dari jaringan publik.
 * [ ] Peserta menandatangani agreement bahwa tidak akan menjalankan serangan di luar lab.
 * [ ] Semua log dan bukti disimpan untuk audit.
-
-
-## Lampiran — Contoh File & Perintah (Siap Copy-Paste)
-
-### Contoh `nginx-mitigation-example.conf`
-
-Simpan di `configs/nginx-mitigation-example.conf`:
-
-```nginx
-http {
-    # TIMEOUTS
-    client_header_timeout 10s;
-    client_body_timeout 10s;
-    keepalive_timeout 10s;
-
-    # LIMIT CONNECTIONS PER IP
-    limit_conn_zone $binary_remote_addr zone=addr:10m;
-    limit_conn addr 10;
-
-    # LIMIT REQUEST RATE PER IP
-    limit_req_zone $binary_remote_addr zone=req_per_ip:10m rate=10r/s;
-
-    server {
-        listen 80 default_server;
-        server_name _;
-        root /var/www/html;
-        index index.html;
-    }
-}
-```
-
-### Perintah monitoring ringkas (copyable)
-
-```bash
-# Cek nginx
-systemctl status nginx
-# Test config
-sudo nginx -t
-# Reload
-sudo systemctl reload nginx
-
-# Monitoring
-top
-htop
-free -h
-ss -s
-ss -antp | grep nginx
-tail -f /var/log/nginx/access.log /var/log/nginx/error.log
-
-# Curl response time simple
-curl -o /dev/null -s -w "time_total: %{time_total}s\n" "http://<IP_VICTIM>/"
-```
-
-### Contoh menjalankan Slowloris (copyable)
-
-```bash
-# di direktori slowloris pada Attacker
-python3 slowloris.py <IP_VICTIM> 10000
-# hentikan dengan Ctrl+C
-```
 
 
 ## Template Slide Singkat (Outline)
