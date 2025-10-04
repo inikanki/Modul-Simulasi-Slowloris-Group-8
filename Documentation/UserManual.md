@@ -80,7 +80,7 @@ cd slowloris
 ```
 
 
-## 7. Menjalankan Simulasi Slowloris
+## 6. Menjalankan Simulasi Slowloris
 
 > Sesuaikan parameter (jumlah sockets) dengan kapasitas lab. Jangan langsung gunakan angka ekstrem.
 
@@ -97,7 +97,7 @@ Amati pada Victim:
 **Catatan keselamatan:** jika layanan host lain terganggu, hentikan serangan segera (Ctrl+C).
 
 
-## 8. Mitigasi di Nginx (Contoh)
+## 7. Mitigasi di Nginx (Contoh)
 
 Buka dan edit konfigurasi utama (`/etc/nginx/nginx.conf`) atau file di `sites-available` sesuai arsitektur.
 
@@ -124,7 +124,7 @@ sudo nginx -t
 sudo systemctl reload nginx
 ```
 
-## 9. Evaluasi & Pengukuran Pasca-Mitigation
+## 8. Evaluasi & Pengukuran Pasca-Mitigation
 
 Ulangi langkah serangan setelah menerapkan mitigasi dan bandingkan:
 * Log Nginx
