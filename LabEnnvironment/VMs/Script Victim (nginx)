@@ -10,3 +10,16 @@ ifconfig
 Untuk masuk kedalam mode nano
 sudo nano nginx.d 
 
+Mitigasi di dalam mode nano
+limit_conn_zone $binary_remote_addr zone=addr: 10m;
+
+server {
+        # ...
+        location/store/ {
+                limit_conn addr 10;
+                # ...
+        }_
+        client_body_timeout 5s;
+        client_header_timeout 5s;
+        # ...
+}
